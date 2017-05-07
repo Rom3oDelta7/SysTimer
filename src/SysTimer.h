@@ -1,17 +1,24 @@
 /*
-SysTimer: a timer abstraction library that provides a consistent API across a variety of platforms
+SysTimer: a timer abstraction library that provides a simple and consistent API across a variety of platforms
 Currently supports:
   * ESP platforms (ESP8266, ESP32)
-  * AVR platforms (Atmel AVR: Arduino, Mega, Nano, etc.)
+  * AVR platforms (ATmega168/328: Uno, Mega, Nano, Teensy, etc.) See: https://github.com/PaulStoffregen/TimerThree/blob/master/config/known_16bit_timers.h
   * SAM platforms (Due)
+
+This library utilizes the following libraries for the actual timer implementation:
+DueTimer: https://github.com/ivanseidel/DueTimer
+
+To provide a consistent interface, some functions of the supporting timer libraries, especially those that are hardware-specific, are not supported.
+The resolution of the timer interval is always in milliseconds, for example.
+In other cases, some capabilities are added. A significant example is the ability to pass an argument to the intgerrupt handler (callback).
 
 Copyright 2017 Rob Redford
 This work is licensed under the Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0) International License.
 To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/4.0
 */
 
-#ifndef _SysTimer_H
-#define _SysTimer_H
+#ifndef _SysTimer_H_
+#define _SysTimer_H_
 
 #if defined(ARDUINO) && ARDUINO >= 100
 	#include "arduino.h"
@@ -57,11 +64,11 @@ public:
 protected:
    Platform      _platform;
    bool          _valid = false;                      // true if this is a valid (enabled) timer
-   bool          _armed = false;                      // true when timer is active
+   volatile bool _armed = false;                      // true when timer is active
    static int8_t _count;                              // static ==> shared counter to manage number of instantiated timers
    uint32_t      _interval = 0;                       // msec interval for timer
-   bool          _repeating = false;                  // true if the timer continues until stopped
-   bool          _oneshot = false;                    // control flag for one-shot events
+   volatile bool _repeating = false;                  // true if the timer continues until stopped
+   volatile bool _oneshot = false;                    // control flag for one-shot events
    CallbackArg   _callback = nullptr;                 // timer interrupt user callback function
    void*         _callbackArg = nullptr;              // argument for aforementioned callback function
    TimerType     _timer;                              // platform-specific timer
@@ -128,15 +135,15 @@ class SAMTimer;                               // forward ref decl
 #ifndef USING_SERVO_LIB
    #define SYST_MAX_TIMERS    9                    // timers pre-instantiated in DueTimer library
 
-   void _isrSAM0 (void);
-   void _isrSAM1 (void);
-   void _isrSAM2 (void);
-   void _isrSAM3 (void);
-   void _isrSAM4 (void);
-   void _isrSAM5 (void);
-   void _isrSAM6 (void);
-   void _isrSAM7 (void);
-   void _isrSAM8 (void);
+   static void _isrSAM0 (void);
+   static void _isrSAM1 (void);
+   static void _isrSAM2 (void);
+   static void _isrSAM3 (void);
+   static void _isrSAM4 (void);
+   static void _isrSAM5 (void);
+   static void _isrSAM6 (void);
+   static void _isrSAM7 (void);
+   static void _isrSAM8 (void);
 
    /*
     the DueTimer library pre-instantiates the Timer objects 0:7
@@ -149,11 +156,11 @@ class SAMTimer;                               // forward ref decl
 #else
    #define SYST_MAX_TIMERS    5
 
-   void _isrSAM0 (void);                 // refers to Timer, not Timer0 in DueTimer.cpp, but 0 used here for consistency
-   void _isrSAM1 (void);
-   void _isrSAM6 (void);
-   void _isrSAM7 (void);
-   void _isrSAM8 (void);
+   static void _isrSAM0 (void);                 // refers to Timer, not Timer0 in DueTimer.cpp, but 0 used here for consistency
+   static void _isrSAM1 (void);
+   static void _isrSAM6 (void);
+   static void _isrSAM7 (void);
+   static void _isrSAM8 (void);
 
    CallbackFunc _SAMCallbackTable[MAX_TIMERS] = { &_isrSAM0, &_isrSAM1, &_isrSAM6, &_isrSAM7, &_isrSAM8 };
 #endif
@@ -233,24 +240,24 @@ private:
    DueTimer* _DueTimers[SYST_MAX_TIMERS] = { &Timer0, &Timer1, &Timer2, &Timer3, &Timer4, &Timer5, &Timer6, &Timer7 };
 
    // allow shim ISR to access the object private parts
-   friend void _isrCommonHandler(SAMTimer* that);
-   friend void _isrSAM0(void);
-   friend void _isrSAM1(void);
-   friend void _isrSAM2(void);
-   friend void _isrSAM3(void);
-   friend void _isrSAM4(void);
-   friend void _isrSAM5(void);
-   friend void _isrSAM6(void);
-   friend void _isrSAM7(void);
-   friend void _isrSAM8(void);
+   friend  void _isrCommonHandler(SAMTimer* that);
+   friend  void _isrSAM0(void);
+   friend  void _isrSAM1(void);
+   friend  void _isrSAM2(void);
+   friend  void _isrSAM3(void);
+   friend  void _isrSAM4(void);
+   friend  void _isrSAM5(void);
+   friend  void _isrSAM6(void);
+   friend  void _isrSAM7(void);
+   friend  void _isrSAM8(void);
 #else
    DueTimer* _DueTimers[MAX_TIMERS] = { &Timer, &Timer1, &Timer6, &Timer7 };
-   friend void _isrCommonHandler(SAMTimer* that);
-   friend void _isrSAM0(void);
-   friend void _isrSAM1(void);
-   friend void _isrSAM6(void);
-   friend void _isrSAM7(void);
-   friend void _isrSAM8(void);
+   friend  void _isrCommonHandler(SAMTimer* that);
+   friend  void _isrSAM0(void);
+   friend  void _isrSAM1(void);
+   friend  void _isrSAM6(void);
+   friend  void _isrSAM7(void);
+   friend  void _isrSAM8(void);
 #endif
 };
 
@@ -271,46 +278,47 @@ void _isrCommonHandler(SAMTimer* that) {
    }
    if (that->_oneshot) {
       that->_oneshot = false;
-      that->disarm();                         // ***TODO*** make sure this is OK to call in an ISR
+      that->disarm(); 
    }
    interrupts();
 }
 
-void _isrSAM0 (void) {
+// declare these as static to limit their scope to this exeuction unit (for a "C" function)
+static void _isrSAM0 (void) {
    _isrCommonHandler(_SAMTimerTable[0]);
 }
 
-void _isrSAM1 (void) {
+static void _isrSAM1 (void) {
    _isrCommonHandler(_SAMTimerTable[1]);
 }
 
 #ifndef USING_SERVO_LIB
-void _isrSAM2 (void) {
+static void _isrSAM2 (void) {
    _isrCommonHandler(_SAMTimerTable[2]);
 }
 
-void _isrSAM3 (void) {
+static void _isrSAM3 (void) {
    _isrCommonHandler(_SAMTimerTable[3]);
 }
 
-void _isrSAM4 (void) {
+static void _isrSAM4 (void) {
    _isrCommonHandler(_SAMTimerTable[4]);
 }
 
-void _isrSAM5 (void) {
+static void _isrSAM5 (void) {
    _isrCommonHandler(_SAMTimerTable[5]);
 }
 #endif
 
-void _isrSAM6 (void) {
+static void _isrSAM6 (void) {
    _isrCommonHandler(_SAMTimerTable[6]);
 }
 
-void _isrSAM7 (void) {
+static void _isrSAM7 (void) {
    _isrCommonHandler(_SAMTimerTable[7]);
 }
 
-void _isrSAM8 (void) {
+static void _isrSAM8 (void) {
    _isrCommonHandler(_SAMTimerTable[8]);
 }
 
