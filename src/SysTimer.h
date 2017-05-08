@@ -1,16 +1,15 @@
 /*
 SysTimer: a timer abstraction library that provides a simple and consistent API across a variety of platforms
 Currently supports:
-  * ESP platforms (ESP8266, ESP32)
-  * AVR platforms (ATmega168/328: Uno, Mega, Nano, Teensy, etc.)
+  * ESP8266
+  * AVR platforms (Uno, Mega, Nano, Pro Micro, Teensy, etc.)
   * SAM platforms (Due)
 
 This library utilizes the following libraries for the actual timer implementation:
+ESP: internal
 DueTimer: https://github.com/ivanseidel/DueTimer
+AVR: internal
 
-To provide a consistent interface, some functions of the supporting timer libraries, especially those that are hardware-specific, are not supported.
-The resolution of the timer interval is always in milliseconds, for example.
-In other cases, some capabilities are added. A significant example is the ability to pass an argument to the intgerrupt handler (callback).
 
 Copyright 2017 Rob Redford
 This work is licensed under the Creative Commons Attribution-ShareAlike 4.0 (CC BY-SA 4.0) International License.
@@ -72,7 +71,7 @@ protected:
    void*         _callbackArg = nullptr;              // argument for aforementioned callback function
 };
 
-#if defined(ESP8266) or defined(ESP32)
+#if defined(ESP8266)
 
 extern "C" {
    #include "user_interface.h"
