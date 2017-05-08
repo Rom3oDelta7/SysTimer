@@ -323,9 +323,10 @@ static void _isrSAM8 (void) {
 #define SysTimer AVRTimer
 
 /*
-AVR timer implementation for ATMega 16-bit timers:
-Uno (ATmega168/328) :    timer 1
-Mega (ATMega1280/2560) : timer 1,3,4,5
+AVR timer implementation for ATMega 8/16-bit timers:
+Uno (ATmega168/328) :       timer 1
+Pro Micro (ATmega16/32U4):  timer 1, 3
+Mega (ATMega1280/2560) :    timer 1, 3, 4, 5
 
 Reference: https://arduinodiy.wordpress.com/2012/02/28/timer-interrupts/
 
@@ -346,12 +347,16 @@ note that timer functions are declared as "static" to limit their scope to this 
 #define TIMER_CTC(T)        OCIE ## T ## A
 #define TIMER_CMR(T)        OCR ## T ## A
 
+#define MAX_INTERVAL          ((65535.0 * 1024.0)/(double)F_CPU)          // floating representation of longest timer interval with 16-bit counter and 1024 pre-scaler
+
 
 // set number of available 16-bit timers
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-#define SYST_MAX_TIMERS    4 
+   #define SYST_MAX_TIMERS    4 
+#elif defined(__AVR_ATmega32u4__) || defined(ARDUINO_AVR_PROMICRO) || defined(__AVR_ATmega16u4__)
+   #define SYST_MAX_TIMERS    2
 #else
-#define SYST_MAX_TIMERS    1
+   #define SYST_MAX_TIMERS    1
 #endif
 
 class AVRTimer;                               // forward ref decl
@@ -368,11 +373,12 @@ static void inline stopTimer (const uint8_t timerNum, const bool disableInterrup
       TIMER_CONTROL(1, A) = 0;                 // technically, the timer stops when the CSx bits in segment B are cleared, but clear this too for insurance
       TIMER_CONTROL(1, B) = 0;
       break;
-#if SYST_MAX_TIMERS == 4
+#if SYST_MAX_TIMERS >= 2
    case 1:
       TIMER_CONTROL(3, A) = 0;
       TIMER_CONTROL(3, B) = 0;
       break;
+#if SYST_MAX_TIMERS == 4
    case 2:
       TIMER_CONTROL(4, A) = 0;
       TIMER_CONTROL(4, B) = 0;
@@ -381,6 +387,7 @@ static void inline stopTimer (const uint8_t timerNum, const bool disableInterrup
       TIMER_CONTROL(5, A) = 0;
       TIMER_CONTROL(5, B) = 0;
       break;
+#endif
 #endif
    }
    if (disableInterrupts) sei();
@@ -396,16 +403,18 @@ static void inline initTimer(const uint8_t timerNum) {
    case 0:
       TIMER_MASK(1) |= _BV(TIMER_CTC(1));
       break;
-#if SYST_MAX_TIMERS == 4
+#if SYST_MAX_TIMERS >= 2
    case 1:
       TIMER_MASK(3) |= _BV(TIMER_CTC(3));
       break;
+#if SYST_MAX_TIMERS == 4
    case 2:
       TIMER_MASK(4) |= _BV(TIMER_CTC(4));
       break;
    case 3:
       TIMER_MASK(5) |= _BV(TIMER_CTC(5));
       break;
+#endif
 #endif
    }
    sei();
@@ -417,7 +426,7 @@ start a timer by setting the control bits
 uses a fixed prescaler of 1024 (bits CS10 and CS12)
 also set WGM12 to enable the cimer compare match mode (CTC)
 
-Setting the control bits starts the timer. Once started, the timer countines to count (and overflow, resulting in an interrupt) until stopped
+Setting the control bits starts the timer. Once started, the timer countines to count until stopped
 */
 static void inline startTimer(const uint8_t timerNum) {
    cli();
@@ -425,16 +434,18 @@ static void inline startTimer(const uint8_t timerNum) {
    case 0:
       TIMER_CONTROL(1, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
-#if SYST_MAX_TIMERS == 4
+#if SYST_MAX_TIMERS >= 2
    case 1:
       TIMER_CONTROL(3, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
+#if SYST_MAX_TIMERS == 4
    case 2:
       TIMER_CONTROL(4, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
    case 3:
       TIMER_CONTROL(5, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
+#endif
 #endif
    }
    sei();
@@ -457,24 +468,27 @@ and load this value into the timer compare match register
 */
 uint16_t inline setTimerInterval(const uint8_t timerNum, const uint16_t msec) {
    cli();
-   double elapsed = msec / 1000.0;
-   double temp = (elapsed / (double)(1024.0/F_CPU)) - 1.0;
+   uint16_t maximum = static_cast<uint16_t>((MAX_INTERVAL) * 1000.0);
+   double elapsed = constrain(msec, 1, maximum) / 1000.0;
+   double temp = (elapsed / static_cast<double>(1024.0/F_CPU)) - 1.0;
    uint16_t counter = static_cast<uint16_t>(temp);
 
    switch (timerNum) {
    case 0:
       TIMER_CMR(1) = counter;
       break;
-#if SYST_MAX_TIMERS == 4
+#if SYST_MAX_TIMERS >= 2
    case 1:
       TIMER_CMR(3) = counter;
       break;
+#if SYST_MAX_TIMERS == 4
    case 2:
       TIMER_CMR(4) = counter;
       break;
    case 3:
       TIMER_CMR(5) = counter;
       break;
+#endif
 #endif
    }
    sei();
@@ -496,12 +510,12 @@ ISR(TIMER1_COMPA_vect) {
    _AVRCommonHandler(_AVRTimerTable[0]);
 }
 
-#if SYST_MAX_TIMERS == 4
+#if SYST_MAX_TIMERS >= 2
 
 ISR(TIMER3_COMPA_vect) {
    _AVRCommonHandler(_AVRTimerTable[1]);
 }
-
+#if SYST_MAX_TIMERS == 4
 ISR(TIMER4_COMPA_vect) {
    _AVRCommonHandler(_AVRTimerTable[2]);
 }
@@ -509,6 +523,7 @@ ISR(TIMER4_COMPA_vect) {
 ISR(TIMER5_COMPA_vect) {
    _AVRCommonHandler(_AVRTimerTable[3]);
 }
+#endif
 #endif
 
 
