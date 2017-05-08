@@ -1,5 +1,7 @@
 /*
 SysTimer: a timer abstraction library that provides a simple and consistent API across a variety of platforms
+https://github.com/Rom3oDelta7/SysTimer
+
 Currently supports:
   * ESP8266
   * AVR platforms (Uno, Mega, Nano, Pro Micro, Teensy, etc.)
