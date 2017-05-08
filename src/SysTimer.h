@@ -235,7 +235,7 @@ private:
    DueTimer* _DueTimers[SYST_MAX_TIMERS] = { &Timer0, &Timer1, &Timer2, &Timer3, &Timer4, &Timer5, &Timer6, &Timer7 };
 
    // allow shim ISR to access the object private parts
-   friend  void _isrCommonHandler(SAMTimer* that);
+   friend  void _SAMCommonHandler(SAMTimer* that);
    friend  void _isrSAM0(void);
    friend  void _isrSAM1(void);
    friend  void _isrSAM2(void);
@@ -247,7 +247,7 @@ private:
    friend  void _isrSAM8(void);
 #else
    DueTimer* _DueTimers[MAX_TIMERS] = { &Timer, &Timer1, &Timer6, &Timer7 };
-   friend  void _isrCommonHandler(SAMTimer* that);
+   friend  void _SAMCommonHandler(SAMTimer* that);
    friend  void _isrSAM0(void);
    friend  void _isrSAM1(void);
    friend  void _isrSAM6(void);
@@ -264,7 +264,7 @@ private:
  just to avoid any timing issues
  */
 
-void _isrCommonHandler(SAMTimer* that) {
+void _SAMCommonHandler(SAMTimer* that) {
    noInterrupts();
    if (that->_repeating || that->_oneshot) {
       auto callback = std::bind(that->_callback, that->_callbackArg);              // VS2017 IntelliSense complains but gcc accepts this
@@ -280,41 +280,41 @@ void _isrCommonHandler(SAMTimer* that) {
 
 // declare these as static to limit their scope to this exeuction unit (for a "C" function)
 static void _isrSAM0 (void) {
-   _isrCommonHandler(_SAMTimerTable[0]);
+   _SAMCommonHandler(_SAMTimerTable[0]);
 }
 
 static void _isrSAM1 (void) {
-   _isrCommonHandler(_SAMTimerTable[1]);
+   _SAMCommonHandler(_SAMTimerTable[1]);
 }
 
 #ifndef USING_SERVO_LIB
 static void _isrSAM2 (void) {
-   _isrCommonHandler(_SAMTimerTable[2]);
+   _SAMCommonHandler(_SAMTimerTable[2]);
 }
 
 static void _isrSAM3 (void) {
-   _isrCommonHandler(_SAMTimerTable[3]);
+   _SAMCommonHandler(_SAMTimerTable[3]);
 }
 
 static void _isrSAM4 (void) {
-   _isrCommonHandler(_SAMTimerTable[4]);
+   _SAMCommonHandler(_SAMTimerTable[4]);
 }
 
 static void _isrSAM5 (void) {
-   _isrCommonHandler(_SAMTimerTable[5]);
+   _SAMCommonHandler(_SAMTimerTable[5]);
 }
 #endif
 
 static void _isrSAM6 (void) {
-   _isrCommonHandler(_SAMTimerTable[6]);
+   _SAMCommonHandler(_SAMTimerTable[6]);
 }
 
 static void _isrSAM7 (void) {
-   _isrCommonHandler(_SAMTimerTable[7]);
+   _SAMCommonHandler(_SAMTimerTable[7]);
 }
 
 static void _isrSAM8 (void) {
-   _isrCommonHandler(_SAMTimerTable[8]);
+   _SAMCommonHandler(_SAMTimerTable[8]);
 }
 
 #elif defined(__AVR__)
@@ -368,6 +368,7 @@ static void inline stopTimer (const uint8_t timerNum, const bool disableInterrup
       CONTROL_REG(1, A) = 0;                 // technically, the timer stops when the CSx bits in segment B are cleared, but clear this too for insurance
       CONTROL_REG(1, B) = 0;
       break;
+#if SYST_MAX_TIMERS == 4
    case 1:
       CONTROL_REG(3, A) = 0;
       CONTROL_REG(3, B) = 0;
@@ -380,6 +381,7 @@ static void inline stopTimer (const uint8_t timerNum, const bool disableInterrup
       CONTROL_REG(5, A) = 0;
       CONTROL_REG(5, B) = 0;
       break;
+#endif
    }
    if (disableInterrupts) sei();
 }
@@ -394,6 +396,7 @@ static void inline initTimer(const uint8_t timerNum) {
    case 0:
       TIMER_MASK(1) |= _BV(TIMER_CTC(1));
       break;
+#if SYST_MAX_TIMERS == 4
    case 1:
       TIMER_MASK(3) |= _BV(TIMER_CTC(3));
       break;
@@ -403,6 +406,7 @@ static void inline initTimer(const uint8_t timerNum) {
    case 3:
       TIMER_MASK(5) |= _BV(TIMER_CTC(5));
       break;
+#endif
    }
    sei();
 }
@@ -421,6 +425,7 @@ static void inline startTimer(const uint8_t timerNum) {
    case 0:
       CONTROL_REG(1, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
+#if SYST_MAX_TIMERS == 4
    case 1:
       CONTROL_REG(3, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
@@ -430,6 +435,7 @@ static void inline startTimer(const uint8_t timerNum) {
    case 3:
       CONTROL_REG(5, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
+#endif
    }
    sei();
 }
@@ -459,6 +465,7 @@ uint16_t inline setTimerInterval(const uint8_t timerNum, const uint16_t msec) {
    case 0:
       TIMER_CMR(1) = counter;
       break;
+#if SYST_MAX_TIMERS == 4
    case 1:
       TIMER_CMR(3) = counter;
       break;
@@ -468,6 +475,7 @@ uint16_t inline setTimerInterval(const uint8_t timerNum, const uint16_t msec) {
    case 3:
       TIMER_CMR(5) = counter;
       break;
+#endif
    }
    sei();
    return counter;
@@ -576,7 +584,6 @@ private:
 Shim ISR that associates the interrupt with the initiatiating timer object and the calls the user's callback function
 with the provided (non-optional) argument
 */
-
 void _AVRCommonHandler(AVRTimer* that) {
    if (that->_repeating || that->_oneshot) {
       //auto callback = std::bind(that->_callback, that->_callbackArg);
