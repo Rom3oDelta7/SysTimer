@@ -2,7 +2,7 @@
 SysTimer: a timer abstraction library that provides a simple and consistent API across a variety of platforms
 Currently supports:
   * ESP platforms (ESP8266, ESP32)
-  * AVR platforms (ATmega168/328: Uno, Mega, Nano, Teensy, etc.) See: https://github.com/PaulStoffregen/TimerThree/blob/master/config/known_16bit_timers.h
+  * AVR platforms (ATmega168/328: Uno, Mega, Nano, Teensy, etc.)
   * SAM platforms (Due)
 
 This library utilizes the following libraries for the actual timer implementation:
@@ -31,7 +31,6 @@ enum class Platform:uint8_t { T_ESP, T_AVR, T_SAM };
 typedef void (*CallbackFunc)(void);
 typedef void (*CallbackArg)(void*);
 
-template <typename TimerType>
 class SysTimerBase {
 public:
    // need this to make constructor public to prevent a compiler error (cannot reference constructor) in derived classes
@@ -65,13 +64,12 @@ protected:
    Platform      _platform;
    bool          _valid = false;                      // true if this is a valid (enabled) timer
    volatile bool _armed = false;                      // true when timer is active
-   static int8_t _count;                              // static ==> shared counter to manage number of instantiated timers
+   static int8_t _index;                              // counter to manage number of instantiated timers
    uint32_t      _interval = 0;                       // msec interval for timer
    volatile bool _repeating = false;                  // true if the timer continues until stopped
    volatile bool _oneshot = false;                    // control flag for one-shot events
    CallbackArg   _callback = nullptr;                 // timer interrupt user callback function
    void*         _callbackArg = nullptr;              // argument for aforementioned callback function
-   TimerType     _timer;                              // platform-specific timer
 };
 
 #if defined(ESP8266) or defined(ESP32)
@@ -82,7 +80,7 @@ extern "C" {
 #define SYST_MAX_TIMERS  -1                            // -1 indicates no inherent limit
 #define SysTimer ESPTimer
 
-class ESPTimer : public SysTimerBase<os_timer_t> {
+class ESPTimer : public SysTimerBase {
 public:
    ESPTimer() { 
       _platform = Platform::T_ESP;
@@ -111,9 +109,10 @@ public:
       _armed = false;
       return true;
    }
-};
 
-template<> int8_t SysTimerBase<os_timer_t>::_count = 0;             // template static member initialization
+private:
+   os_timer_t    _timer;
+};
 
 #elif defined(__SAM3X8E__)
 
@@ -168,18 +167,14 @@ class SAMTimer;                               // forward ref decl
 // allows us to emulate use of "this" in the interrupt handlers referenced through the above callback table
 SAMTimer*    _SAMTimerTable[SYST_MAX_TIMERS] = { nullptr };
 
-/*
- Becuase we use the pre-instantiated timer objects here, we do not need the DueTimer object in this derived class
- Using <int> as a dummy arg
- */
-class SAMTimer : public SysTimerBase<int> {
+class SAMTimer : public SysTimerBase {
 public:
    SAMTimer() { 
-      if (_count + 1 < SYST_MAX_TIMERS) {
+      if (_index + 1 <= SYST_MAX_TIMERS) {
          _platform = Platform::T_SAM;
          _valid = true;
-         _current = _count;
-         ++_count;
+         _current = _index;
+         ++_index;
          // save address of this object so we can access state vars from our ISR
          _SAMTimerTable[_current] = this;
       } else {
@@ -322,7 +317,280 @@ static void _isrSAM8 (void) {
    _isrCommonHandler(_SAMTimerTable[8]);
 }
 
-template<> int8_t SysTimerBase<int>::_count = 0;             // template static member initialization
+#elif defined(__AVR__)
+#include <avr/io.h>
+
+#define SysTimer AVRTimer
+
+/*
+AVR timer implementation for ATMega 16-bit timers:
+Uno (ATmega168/328) :    timer 1
+Mega (ATMega1280/2560) : timer 1,3,4,5
+
+Reference: https://arduinodiy.wordpress.com/2012/02/28/timer-interrupts/
+
+Basic strategy:
+1. clear the timer control registers (stops timer)
+2. enable timer compare on match interrupt mask
+3. pre-load the match register with pre-calculated count value
+4. set the CS control bits in the timer control register to 1024 pre-scaler value and CRC mode, which also starts the timer
+5. The ISR for the overflow timer fires at the end of the interval, and we take the necessary actions in the ISR
+e.g. countine counting, stop the timer, etc.
+
+note that timer functions are declared as "static" to limit their scope to this file
+*/
+
+// macros for register pre-defined symbols  - see iomx8.h for Arduino, iomxx0_1.h for Arduino Mega
+#define CONTROL_REG(T, S) TCCR ## T ## S
+#define TIMER_MASK(T)     TIMSK ## T
+#define TIMER_CTC(T)      OCIE ## T ## A
+#define TIMER_CMR(T)      OCR ## T ## A
+
+
+// set number of available 16-bit timers
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+#define SYST_MAX_TIMERS    4 
+#else
+#define SYST_MAX_TIMERS    1
+#endif
+
+class AVRTimer;                               // forward ref decl
+
+/*
+stop a timer by clearing the timer control registers
+Mega timers: 1, 3, 4, 5
+by default, disables interrupts
+*/
+static void inline stopTimer (const uint8_t timerNum, const bool disableInterrupts = true) {
+   if (disableInterrupts) cli();
+   switch (timerNum) {
+   case 0:
+      CONTROL_REG(1, A) = 0;                 // technically, the timer stops when the CSx bits in segment B are cleared, but clear this too for insurance
+      CONTROL_REG(1, B) = 0;
+      break;
+   case 1:
+      CONTROL_REG(3, A) = 0;
+      CONTROL_REG(3, B) = 0;
+      break;
+   case 2:
+      CONTROL_REG(4, A) = 0;
+      CONTROL_REG(4, B) = 0;
+      break;
+   case 3:
+      CONTROL_REG(5, A) = 0;
+      CONTROL_REG(5, B) = 0;
+      break;
+   }
+   if (disableInterrupts) sei();
+}
+
+/*
+initialize a timer by setting the timer compare interrupt bit in the timer mask register
+*/
+static void inline initTimer(const uint8_t timerNum) {
+   cli();
+   stopTimer(timerNum, false);
+   switch (timerNum) {
+   case 0:
+      TIMER_MASK(1) |= _BV(TIMER_CTC(1));
+      break;
+   case 1:
+      TIMER_MASK(3) |= _BV(TIMER_CTC(3));
+      break;
+   case 2:
+      TIMER_MASK(4) |= _BV(TIMER_CTC(4));
+      break;
+   case 3:
+      TIMER_MASK(5) |= _BV(TIMER_CTC(5));
+      break;
+   }
+   sei();
+}
+
+/*
+start a timer by setting the control bits
+
+uses a fixed prescaler of 1024 (bits CS10 and CS12)
+also set WGM12 to enable the cimer compare match mode (CTC)
+
+Setting the control bits starts the timer. Once started, the timer countines to count (and overflow, resulting in an interrupt) until stopped
+*/
+static void inline startTimer(const uint8_t timerNum) {
+   cli();
+   switch (timerNum) {
+   case 0:
+      CONTROL_REG(1, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
+      break;
+   case 1:
+      CONTROL_REG(3, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
+      break;
+   case 2:
+      CONTROL_REG(4, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
+      break;
+   case 3:
+      CONTROL_REG(5, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
+      break;
+   }
+   sei();
+}
+
+/*
+use the CTC timer mode (interrupts on timer compare match)
+
+uses a fixed prescaler of 1024 (bits CS10 and CS12) which is used as a divisor of the clock frequency
+this means the minimum period for the timer on this 16MHz system (the "resolution") is :
+1/((16 x 10^6) / 1024) = 6.4 x 10^-5 = 0.000064 seconds (64 usec)
+and the maximum period is:
+(6.4 x 10^-5) * 65535 = 4.19424 sec
+also set WGM12 to enable the timer compare match mode (CTC)
+
+for this mode, we calculate the initial value of the counter as follows:
+count value = (time / resolution) - 1
+note: it is -1 because 0 is counted also
+and load this value into the timer compare match register
+*/
+uint16_t inline setTimerInterval(const uint8_t timerNum, const uint16_t msec) {
+   cli();
+   double elapsed = msec / 1000.0;
+   double temp = (elapsed / 6.4e-5) - 1.0;
+   uint16_t counter = static_cast<uint16_t>(temp);
+
+   switch (timerNum) {
+   case 0:
+      TIMER_CMR(1) = counter;
+      break;
+   case 1:
+      TIMER_CMR(3) = counter;
+      break;
+   case 2:
+      TIMER_CMR(4) = counter;
+      break;
+   case 3:
+      TIMER_CMR(5) = counter;
+      break;
+   }
+   sei();
+   return counter;
+}
+
+// allows us to emulate use of "this" in the interrupt handlers referenced through the above callback table
+static AVRTimer* _AVRTimerTable[SYST_MAX_TIMERS] = { nullptr };
+
+void _AVRCommonHandler(AVRTimer* that);
+
+/*
+Function macros for timer interrupt handlers
+Notes:
+1. for one-shot timers, clear the timer control register "B" here to stop the timer
+2. interrupts are disabled in this macro
+*/
+ISR(TIMER1_COMPA_vect) {
+   _AVRCommonHandler(_AVRTimerTable[0]);
+}
+
+#if SYST_MAX_TIMERS == 4
+
+ISR(TIMER3_COMPA_vect) {
+   _AVRCommonHandler(_AVRTimerTable[1]);
+}
+
+ISR(TIMER4_COMPA_vect) {
+   _AVRCommonHandler(_AVRTimerTable[2]);
+}
+
+ISR(TIMER5_COMPA_vect) {
+   _AVRCommonHandler(_AVRTimerTable[3]);
+}
+#endif
+
+
+class AVRTimer : public SysTimerBase {
+public:
+   AVRTimer() {
+      if (_index + 1 <= SYST_MAX_TIMERS) {
+         _platform = Platform::T_AVR;
+         _valid = true;
+         _current = _index;
+         ++_index;
+         // save address of this object so we can access state vars from our ISR
+         _AVRTimerTable[_current] = this;
+         initTimer(_current);
+         //Serial.println(F("> CONSTRUCTOR"));
+      } else {
+         // can't return an error from a constructor, so we do this instead - we now have a "zombie" timer
+         _valid = false;
+      }
+   }
+
+   bool attachInterrupt(const CallbackArg isr, void* callbackArg) {
+      if (_valid) {
+         // save the user's callback and argument in this object
+         _callback = isr;
+         _callbackArg = callbackArg;
+         //Serial.println(F(">> ATTACH"));
+         return true;
+      } else {
+         return false;
+      }
+   }
+
+   bool arm(const bool repeat) {
+      if (_valid && (_callback != nullptr) && (_interval > 0)) {
+         if (repeat) {
+            _repeating = true;
+            _oneshot = false;
+         } else {
+            _repeating = false;
+            _oneshot = true;                     // will be flipped once we get the first callback
+         }
+         setTimerInterval(_current, static_cast<uint16_t>(_interval));
+         startTimer(_current);
+         _armed = true;
+         //Serial.println(F(">>> ARM"));
+      } else {
+         _armed = false;
+      }
+      return _armed;
+   }
+
+   bool disarm(void) {
+      if (_valid) {
+         stopTimer(_current);
+         _repeating = false;
+         _oneshot = false;
+         _armed = false;
+         //Serial.println(F(">>>> DISARM"));
+         return true;
+      } else {
+         return false;
+      }
+   }
+
+private:
+   int8_t      _current = -1;              // indexes the current timer
+   // allow shim ISR to access the object private parts
+   friend  void _AVRCommonHandler(AVRTimer* that);
+};
+
+/*
+Shim ISR that associates the interrupt with the initiatiating timer object and the calls the user's callback function
+with the provided (non-optional) argument
+*/
+
+void _AVRCommonHandler(AVRTimer* that) {
+   if (that->_repeating || that->_oneshot) {
+      //auto callback = std::bind(that->_callback, that->_callbackArg);
+      (*(that->_callback))(that->_callbackArg);                                       // bind unavailable
+   }
+   if (that->_oneshot) {
+      that->_oneshot = false;
+      that->disarm();
+   }
+}
+
 
 #endif // architecture
+
+int8_t SysTimerBase::_index = 0;
+
 #endif //header protect
