@@ -341,10 +341,10 @@ note that timer functions are declared as "static" to limit their scope to this 
 */
 
 // macros for register pre-defined symbols  - see iomx8.h for Arduino, iomxx0_1.h for Arduino Mega
-#define CONTROL_REG(T, S) TCCR ## T ## S
-#define TIMER_MASK(T)     TIMSK ## T
-#define TIMER_CTC(T)      OCIE ## T ## A
-#define TIMER_CMR(T)      OCR ## T ## A
+#define TIMER_CONTROL(T, S) TCCR ## T ## S
+#define TIMER_MASK(T)       TIMSK ## T
+#define TIMER_CTC(T)        OCIE ## T ## A
+#define TIMER_CMR(T)        OCR ## T ## A
 
 
 // set number of available 16-bit timers
@@ -365,21 +365,21 @@ static void inline stopTimer (const uint8_t timerNum, const bool disableInterrup
    if (disableInterrupts) cli();
    switch (timerNum) {
    case 0:
-      CONTROL_REG(1, A) = 0;                 // technically, the timer stops when the CSx bits in segment B are cleared, but clear this too for insurance
-      CONTROL_REG(1, B) = 0;
+      TIMER_CONTROL(1, A) = 0;                 // technically, the timer stops when the CSx bits in segment B are cleared, but clear this too for insurance
+      TIMER_CONTROL(1, B) = 0;
       break;
 #if SYST_MAX_TIMERS == 4
    case 1:
-      CONTROL_REG(3, A) = 0;
-      CONTROL_REG(3, B) = 0;
+      TIMER_CONTROL(3, A) = 0;
+      TIMER_CONTROL(3, B) = 0;
       break;
    case 2:
-      CONTROL_REG(4, A) = 0;
-      CONTROL_REG(4, B) = 0;
+      TIMER_CONTROL(4, A) = 0;
+      TIMER_CONTROL(4, B) = 0;
       break;
    case 3:
-      CONTROL_REG(5, A) = 0;
-      CONTROL_REG(5, B) = 0;
+      TIMER_CONTROL(5, A) = 0;
+      TIMER_CONTROL(5, B) = 0;
       break;
 #endif
    }
@@ -423,17 +423,17 @@ static void inline startTimer(const uint8_t timerNum) {
    cli();
    switch (timerNum) {
    case 0:
-      CONTROL_REG(1, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
+      TIMER_CONTROL(1, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
 #if SYST_MAX_TIMERS == 4
    case 1:
-      CONTROL_REG(3, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
+      TIMER_CONTROL(3, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
    case 2:
-      CONTROL_REG(4, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
+      TIMER_CONTROL(4, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
    case 3:
-      CONTROL_REG(5, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
+      TIMER_CONTROL(5, B) |= (_BV(CS10) | _BV(CS12) | _BV(WGM12));
       break;
 #endif
    }
@@ -444,21 +444,21 @@ static void inline startTimer(const uint8_t timerNum) {
 use the CTC timer mode (interrupts on timer compare match)
 
 uses a fixed prescaler of 1024 (bits CS10 and CS12) which is used as a divisor of the clock frequency
-this means the minimum period for the timer on this 16MHz system (the "resolution") is :
-1/((16 x 10^6) / 1024) = 6.4 x 10^-5 = 0.000064 seconds (64 usec)
+this means the minimum period for the timer on a 16MHz system (the "resolution") is :
+  1/((16 x 10^6) / 1024) = 6.4 x 10^-5 = 0.000064 seconds (64 usec)
 and the maximum period is:
-(6.4 x 10^-5) * 65535 = 4.19424 sec
+  (6.4 x 10^-5) * 65535 = 4.19424 sec
 also set WGM12 to enable the timer compare match mode (CTC)
 
 for this mode, we calculate the initial value of the counter as follows:
-count value = (time / resolution) - 1
-note: it is -1 because 0 is counted also
+  count value = (time / resolution) - 1
+  note: it is -1 because 0 is counted also
 and load this value into the timer compare match register
 */
 uint16_t inline setTimerInterval(const uint8_t timerNum, const uint16_t msec) {
    cli();
    double elapsed = msec / 1000.0;
-   double temp = (elapsed / 6.4e-5) - 1.0;
+   double temp = (elapsed / (double)(1024.0/F_CPU)) - 1.0;
    uint16_t counter = static_cast<uint16_t>(temp);
 
    switch (timerNum) {
@@ -532,7 +532,7 @@ public:
 
    bool attachInterrupt(const CallbackArg isr, void* callbackArg) {
       if (_valid) {
-         // save the user's callback and argument in this object
+         // save the user's callback and argument in this object and call from the interrupt handler
          _callback = isr;
          _callbackArg = callbackArg;
          //Serial.println(F(">> ATTACH"));
@@ -598,6 +598,6 @@ void _AVRCommonHandler(AVRTimer* that) {
 
 #endif // architecture
 
-int8_t SysTimerBase::_index = 0;
+int8_t SysTimerBase::_index = 0;                        // static class member initialization
 
 #endif //header protect
