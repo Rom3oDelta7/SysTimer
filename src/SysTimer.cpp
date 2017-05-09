@@ -105,7 +105,7 @@ static void _isrSAM8 (void) {
 stop a timer by clearing the timer control registers
 by default, disables interrupts
 */
-static void inline stopTimer (const uint8_t timerNum, const bool disableInterrupts = true) {
+void stopTimer (const uint8_t timerNum, const bool disableInterrupts) {
    if (disableInterrupts) cli();
    switch (timerNum) {
    case 0:
@@ -135,7 +135,7 @@ static void inline stopTimer (const uint8_t timerNum, const bool disableInterrup
 /*
 initialize a timer by setting the timer compare interrupt bit in the timer mask register
 */
-static void inline initTimer(const uint8_t timerNum) {
+void initTimer(const uint8_t timerNum) {
    cli();
    stopTimer(timerNum, false);
    switch (timerNum) {
@@ -167,7 +167,7 @@ also set WGM12 to enable the cimer compare match mode (CTC)
 
 Setting the control bits starts the timer. Once started, the timer countines to count until stopped
 */
-static void inline startTimer(const uint8_t timerNum) {
+void startTimer(const uint8_t timerNum) {
    cli();
    switch (timerNum) {
    case 0:
@@ -205,7 +205,7 @@ for this mode, we calculate the initial value of the counter as follows:
   note: it is -1 because 0 is counted also
 and load this value into the timer compare match register
 */
-static uint16_t inline setTimerInterval(const uint8_t timerNum, const uint16_t msec) {
+uint16_t setTimerInterval(const uint8_t timerNum, const uint16_t msec) {
    cli();
    uint16_t maximum = static_cast<uint16_t>((MAX_INTERVAL) * 1000.0);
    double elapsed = constrain(msec, 1, maximum) / 1000.0;

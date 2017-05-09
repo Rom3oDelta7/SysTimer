@@ -298,10 +298,10 @@ note that timer functions are declared as "static" to limit their scope to this 
 class AVRTimer;
 extern AVRTimer* _AVRTimerTable[];
 
-extern void inline     initTimer(const uint8_t timerNum);
-extern uint16_t inline setTimerInterval(const uint8_t timerNum, const uint16_t msec);
-extern void inline     startTimer(const uint8_t timerNum);
-extern void inline     stopTimer (const uint8_t timerNum, const bool disableInterrupts = true);
+extern void      initTimer(const uint8_t timerNum);
+extern uint16_t  setTimerInterval(const uint8_t timerNum, const uint16_t msec);
+extern void      startTimer(const uint8_t timerNum);
+extern void      stopTimer(const uint8_t timerNum, const bool disableInterrupts = true);
 
 // Atmel class: Uno, Mega, etc.
 class AVRTimer : public SysTimerBase {
