@@ -7,7 +7,7 @@ This work is licensed under the Creative Commons Attribution-ShareAlike 4.0 (CC 
 To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/4.0
 
 */
-#include "SysTimer.h"
+#include <SysTimer.h>
 
 void setup(void) {
    Serial.begin(115200);
@@ -30,7 +30,7 @@ void exhaustTimers(void) {
    SysTimer timer;
    static int count = 2;               // two timers in use when this is called in loop()
 
-   if (timer.valid()) {
+   if (timer.begin()) {
       ++count;
       // each successive call will put one more object on the stack, and we will eventually run out of available timers
       exhaustTimers();
@@ -43,28 +43,26 @@ void exhaustTimers(void) {
 }
 
 void loop(void) {
-   Platform board;
-
    SysTimer mytimer;
 
-   board = mytimer.getPlatform();
-   switch (board) {
-   case Platform::T_AVR:
-      Serial.println(F("Testing AVR(Arduino) platform\n"));
-      break;
-
-   case Platform::T_SAM:
-      Serial.println(F("Testing SAM(Due) platform\n"));
-      break;
-
-   case Platform::T_ESP:
-      Serial.println(F("Testing ESP8266/32 platform\n"));
-      break;
-   }
-
-   if (!mytimer.valid()) {
+   if (!mytimer.begin()) {
       Serial.println(F("*** 1st timer is invalid ***"));
    } else {
+      Platform board = mytimer.getPlatform();
+      switch (board) {
+      case Platform::T_AVR:
+         Serial.println(F("Testing AVR(Arduino) platform\n"));
+         break;
+
+      case Platform::T_SAM:
+         Serial.println(F("Testing SAM(Due) platform\n"));
+         break;
+
+      case Platform::T_ESP:
+         Serial.println(F("Testing ESP8266/32 platform\n"));
+         break;
+      }
+
       // one-shot test
       counter = 0;
       Serial.println(F("*** One shot timer (START)***"));
@@ -105,7 +103,7 @@ void loop(void) {
       // instantiate a new timer and demonstrate some of the status functions
       SysTimer newtimer;
 
-      if (newtimer.valid()) {
+      if (newtimer.begin()) {
          counter = 0;
          Serial.println(F("*** New timer object - one-shot (START)***"));
          Serial.print(F("starting value: ")); Serial.println(counter);

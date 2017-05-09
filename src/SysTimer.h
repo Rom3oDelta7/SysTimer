@@ -37,16 +37,12 @@ public:
    // need this to make constructor public to prevent a compiler error (cannot reference constructor) in derived classes
    SysTimerBase() {}                                  // note that SysTimerBase() = default; will not work in this case
 
-   void setInterval(uint32_t interval) {
-      _interval = interval;
-   }
+   virtual bool begin(void) { return _valid; }
+
+   void setInterval(uint32_t interval) { _interval = interval; }
 
    uint32_t getInterval(void) const {
       return _interval;
-   }
-
-   bool valid(void) const {
-      return _valid;
    }
 
    bool armed(void) const {
@@ -87,6 +83,8 @@ public:
       _platform = Platform::T_ESP;
       _valid = true;
    }
+
+   bool begin(void) override { return true; }
 
    bool attachInterrupt(CallbackArg isr, void* callbackArg) {
       _callback = isr;
@@ -179,7 +177,7 @@ public:
          // save address of this object so we can access state vars from our ISR
          _SAMTimerTable[_current] = this;
       } else {
-         // can't return an error from a constructor, so we do this instead - we now have a "zombie" timer
+         // instantiated but not valid: a zombie timer - user must call begin method to validate
          _valid = false;
       }
    }
@@ -614,6 +612,5 @@ void _AVRCommonHandler(AVRTimer* that) {
 
 #endif // architecture
 
-int8_t SysTimerBase::_index = 0;                        // static class member initialization
 
 #endif //header protect
