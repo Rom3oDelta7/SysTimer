@@ -5,6 +5,9 @@ This work is licensed under the Creative Commons Attribution-ShareAlike 4.0 (CC 
 To view a copy of this license, visit https://creativecommons.org/licenses/by-sa/4.0
 */
 
+#if 0    // ***TODO*** resolve this linking issue
 #include <SysTimer.h>
 
+// placed here to avoid duplicate definitions that can occur in the Arduino IDE
 int8_t SysTimerBase::_index = 0;                        // static class member initialization
+#endif

@@ -37,7 +37,7 @@ public:
    // need this to make constructor public to prevent a compiler error (cannot reference constructor) in derived classes
    SysTimerBase() {}                                  // note that SysTimerBase() = default; will not work in this case
 
-   virtual bool begin(void) { return _valid; }
+   virtual bool begin(void) const { return _valid; }
 
    void setInterval(uint32_t interval) { _interval = interval; }
 
@@ -84,7 +84,7 @@ public:
       _valid = true;
    }
 
-   bool begin(void) override { return true; }
+   bool begin(void) const override { return true; }
 
    bool attachInterrupt(CallbackArg isr, void* callbackArg) {
       _callback = isr;
@@ -327,6 +327,8 @@ Uno (ATmega168/328) :       timer 1
 Pro Micro (ATmega16/32U4):  timer 1, 3
 Mega (ATMega1280/2560) :    timer 1, 3, 4, 5
 
+Note that the Servo.h library uses Timer 1, so we address that with the USING_SERVO_LIB define as we did with the Due
+
 Reference: https://arduinodiy.wordpress.com/2012/02/28/timer-interrupts/
 
 Basic strategy:
@@ -351,18 +353,19 @@ note that timer functions are declared as "static" to limit their scope to this 
 
 // set number of available 16-bit timers
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-   #define SYST_MAX_TIMERS    4 
+   #define SYST_MAX_TIMERS    4               // TImers 1, 3, 4, 5
 #elif defined(__AVR_ATmega32u4__) || defined(ARDUINO_AVR_PROMICRO) || defined(__AVR_ATmega16u4__)
-   #define SYST_MAX_TIMERS    2
-#else
+   #define SYST_MAX_TIMERS    2               // Timers 1, 3
+#elif !defined(USING_SERVO_LIB)
    #define SYST_MAX_TIMERS    1
+#else 
+   #define SYST_MAX_TIMERS    0               // Timer 1 exists but cannot be used
 #endif
 
 class AVRTimer;                               // forward ref decl
 
 /*
 stop a timer by clearing the timer control registers
-Mega timers: 1, 3, 4, 5
 by default, disables interrupts
 */
 static void inline stopTimer (const uint8_t timerNum, const bool disableInterrupts = true) {
@@ -600,8 +603,7 @@ with the provided (non-optional) argument
 */
 void _AVRCommonHandler(AVRTimer* that) {
    if (that->_repeating || that->_oneshot) {
-      //auto callback = std::bind(that->_callback, that->_callbackArg);
-      (*(that->_callback))(that->_callbackArg);                                       // bind unavailable
+      (*(that->_callback))(that->_callbackArg);                                       // std::bind unavailable
    }
    if (that->_oneshot) {
       that->_oneshot = false;
@@ -612,5 +614,6 @@ void _AVRCommonHandler(AVRTimer* that) {
 
 #endif // architecture
 
+int8_t SysTimerBase::_index = 0;                        // static class member initialization
 
 #endif //header protect
