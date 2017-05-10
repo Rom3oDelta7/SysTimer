@@ -92,6 +92,7 @@ bool disarm(void);
 ```
 Stops the timer.
 All other state information remains in place, so you can restart the timer at any time by calling ```arm``` again.
+(Re-arming the timer in this way will reset the interval.)
 Returns ```false``` if an error occurred, else ```true```.
 
 #### Timer Status Functions
