@@ -157,7 +157,7 @@ The workaround is to set your loop up so that it never exits (e.g. create a loop
 
 ## Examples
 The Systimer sketch in the examples folder provides a simple demonstration of declaring and using SysTimer timers.
-It will run unaltered on any of the supported haredware platforms.
+It will run unaltered on any of the supported hardware platforms.
 
 ## Installation
 
