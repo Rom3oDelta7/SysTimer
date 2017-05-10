@@ -41,7 +41,7 @@ The SAM (Due) timers are implemented in top of the [DueTimer library], which mus
 
 ### Programming Interface
 
-#### Creating and Operating Timers
+#### Managing Timers
 
 All of the functions in this section are mandatory for each timer you declare.
 
@@ -140,7 +140,7 @@ For example:
 ```
 
 Note that as the Uno only has one timer, and it is used by the Servo library, there are no remaining timers to use with SysTimer.
-Interactions with other libraries that use hardwarte-timers are possible if not likely, so check the library code if you suspect a problem.
+Interactions with other libraries that use hardware timers are possible if not likely, so check the library code if you suspect a problem.
 
 ## Examples
 The Systimer sketch in the examples folder provides a simple demonstration of declaring and using SysTimer timers.
