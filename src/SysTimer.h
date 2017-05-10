@@ -22,7 +22,7 @@ To view a copy of this license, visit https://creativecommons.org/licenses/by-sa
 #define _SysTimer_H_
 
 #if defined(ARDUINO) && ARDUINO >= 100
-	#include <arduino.h>
+	#include "arduino.h"
 #else
 	#error Older versions of Arduino IDE not supported
 #endif
@@ -62,7 +62,7 @@ protected:
    Platform      _platform;
    bool          _valid = false;                      // true if this is a valid (enabled) timer
    volatile bool _armed = false;                      // true when timer is active
-   static int8_t _index;                              //  counter for instantiated objects
+   static int8_t _index;                              // counter for instantiated objects, initialized in SysTimer_SAM.cpp
    uint32_t      _interval = 0;                       // msec interval for timer
    volatile bool _repeating = false;                  // true if the timer continues until stopped
    volatile bool _oneshot = false;                    // control flag for one-shot events
@@ -276,7 +276,14 @@ e.g. countine counting, stop the timer, etc.
 note that timer functions are declared as "static" to limit their scope to this file
 */
 
+// macros for register pre-defined symbols  - see iomx8.h for Arduino, iomxx0_1.h for Arduino Mega
+#define TIMER_CONTROL(T, S) TCCR ## T ## S
+#define TIMER_MASK(T)       TIMSK ## T
+#define TIMER_CTC(T)        OCIE ## T ## A
+#define TIMER_CMR(T)        OCR ## T ## A
+
 #define MAX_INTERVAL          ((65535.0 * 1024.0)/(double)F_CPU)          // floating representation of longest timer interval with 16-bit counter and 1024 pre-scaler
+
 
 // set number of available 16-bit timers
 #if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)

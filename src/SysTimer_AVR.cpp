@@ -23,6 +23,12 @@ To view a copy of this license, visit https://creativecommons.org/licenses/by-sa
 
 #if defined(__AVR__)
 
+// macros for register pre-defined symbols  - see iomx8.h for Arduino, iomxx0_1.h for Arduino Mega
+#define TIMER_CONTROL(T, S) TCCR ## T ## S
+#define TIMER_MASK(T)       TIMSK ## T
+#define TIMER_CTC(T)        OCIE ## T ## A
+#define TIMER_CMR(T)        OCR ## T ## A
+
 /*
 stop a timer by clearing the timer control registers
 by default, disables interrupts
