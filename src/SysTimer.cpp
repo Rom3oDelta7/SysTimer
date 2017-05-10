@@ -101,6 +101,13 @@ static void _isrSAM8 (void) {
 
 #elif defined(__AVR__)
 
+
+// macros for register pre-defined symbols  - see iomx8.h for Arduino, iomxx0_1.h for Arduino Mega
+#define TIMER_CONTROL(T, S) TCCR ## T ## S
+#define TIMER_MASK(T)       TIMSK ## T
+#define TIMER_CTC(T)        OCIE ## T ## A
+#define TIMER_CMR(T)        OCR ## T ## A
+
 /*
 stop a timer by clearing the timer control registers
 by default, disables interrupts
@@ -257,8 +264,9 @@ void _AVRCommonHandler(AVRTimer* that) {
 /*
 Function macros for timer interrupt handlers
 Notes:
-1. for one-shot timers, clear the timer control register "B" here to stop the timer
-2. interrupts are disabled in this macro
+1. for one-shot timers, could clear the timer control register "B" here to stop the timer
+   but we instead call disarm() to manage all the other state variables, which calls stopTimer()
+2. interrupts are disabled when we enter
 */
 ISR(TIMER1_COMPA_vect) {
    _AVRCommonHandler(_AVRTimerTable[0]);
