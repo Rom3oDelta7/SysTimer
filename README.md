@@ -56,8 +56,9 @@ _This must be the first function you call once declaraing a timer._
 ```C++
 void setInterval(uint32_t interval);
 ```
-This sets the number of microseconds between timer interrupts. 
+This sets the number of milliseconds between timer interrupts. 
 Depending on the platform, the specified interval may be modified to conform to the hardware timer being used.
+For example, the AVR interval cannot exceed 4194 msec on a 16MHz processor (this limit is 8388 msec on an 8MHz processor).
 To determine if this has occurred, you can call the ```getInterval``` function (see below).
 
 ```C++
