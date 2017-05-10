@@ -96,7 +96,8 @@ public:
 
    bool arm(const bool repeat)  {
       if ((_callback != nullptr) && (_interval > 0)) {
-         os_timer_arm(&_timer, _interval >= 5 ? _interval : 5, repeat);
+         _interval = (_interval >= 5) ? _interval : 5;
+         os_timer_arm(&_timer, _interval, repeat);
          _repeating = repeat;
          _armed = repeat ? true : false;             // we have no way to clear the flag after the interrupt actually happens, so must do it here
       } else {
@@ -343,7 +344,7 @@ public:
             _repeating = false;
             _oneshot = true;                     // will be flipped once we get the first callback
          }
-         setTimerInterval(_current, static_cast<uint16_t>(_interval));
+         _interval = setTimerInterval(_current, static_cast<uint16_t>(_interval));
          startTimer(_current);
          _armed = true;
          //Serial.println(F(">>> ARM"));

@@ -204,11 +204,14 @@ for this mode, we calculate the initial value of the counter as follows:
   count value = (time / resolution) - 1
   note: it is -1 because 0 is counted also
 and load this value into the timer compare match register
+
+Returns the set interval, possibly constrained
 */
 uint16_t setTimerInterval(const uint8_t timerNum, const uint16_t msec) {
    cli();
    uint16_t maximum = static_cast<uint16_t>((MAX_INTERVAL) * 1000.0);
-   double elapsed = constrain(msec, 1, maximum) / 1000.0;
+   uint16_t interval = constrain(msec, 1, maximum);
+   double elapsed = static_cast<double>(interval) / 1000.0;
    double temp = (elapsed / static_cast<double>(1024.0/F_CPU)) - 1.0;
    uint16_t counter = static_cast<uint16_t>(temp);
 
@@ -231,7 +234,7 @@ uint16_t setTimerInterval(const uint8_t timerNum, const uint16_t msec) {
 #endif
    }
    sei();
-   return counter;
+   return interval;
 }
 
 // allows us to emulate use of "this" in the interrupt handlers referenced through the above callback table
