@@ -142,6 +142,17 @@ For example:
 Note that as the Uno only has one timer, and it is used by the Servo library, there are no remaining timers to use with SysTimer.
 Interactions with other libraries that use hardware timers are possible if not likely, so check the library code if you suspect a problem.
 
+## Important Caveats
+One AVR platforms, there is a bug in the compiler where the class "constructor" is not called when the object
+is declared in global space (e.g. outside all functions). 
+Thus, the object parameters are not properly initialized and strange behavior results.
+The workaround for this is to declare the object inside a function, such as ```loop```.
+
+There is no class "destructor" for the LED objects. 
+This means that when they go out of scope (say at the end of ```loop```) they are are not destroyed.
+The next time the loop starts, they are allocated anew and you quickly run out of hardware timers.
+The workaround is to set your loop up so that it never exits (e.g. create a loop withing the ```loop``` function).
+
 ## Examples
 The Systimer sketch in the examples folder provides a simple demonstration of declaring and using SysTimer timers.
 It will run unaltered on any of the supported haredware platforms.
