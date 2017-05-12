@@ -62,7 +62,7 @@ For example, the AVR interval cannot exceed 4194 msec on a 16MHz processor (this
 To determine if this has occurred, you can call the ```getInterval``` function (see below).
 
 ```C++
-bool attachInterrupt(CallbackArg isr, void* callbackArg);
+bool attachInterrupt(CallbackArg isr, void* callbackArg = nullptr);
 ```
 This attaches your interrupt service routine (ISR) function (or "callback") that is called each time the timer fires.
 Here, you can take any action required when a timer event occurs.
@@ -77,7 +77,9 @@ A typedef has been declared to make this easy for you to use in typecasting:
 typedef void (*CallbackArg)(void*);
 ```
 The argument to your ISR function has been declared as a ```void*``` but you can use any argument that is the same size as ```void*``` by typecasting it.
-See the example sketch.
+The callback argument parameter is optional. 
+Nevertheless, the declaration of your ISR function _must_ have an argument (of size ```void*```) specified, even if you do not use it.
+See the example sketch to see examples of different uses of the ISR function and arguments.
 
 ```C++
 bool arm(const bool repeat);

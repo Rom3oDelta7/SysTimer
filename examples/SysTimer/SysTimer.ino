@@ -108,7 +108,7 @@ void loop(void) {
          Serial.println(F("*** New timer object - one-shot (START)***"));
          Serial.print(F("starting value: ")); Serial.println(counter);
          newtimer.setInterval(1000);
-         newtimer.attachInterrupt((CallbackArg)isr2, nullptr);             // must pass a null argument as a placeholder if arg not used in the callback function
+         newtimer.attachInterrupt((CallbackArg)isr2);
          newtimer.arm(false);
          if (!newtimer.isRepeating()) {
             delay(5000);

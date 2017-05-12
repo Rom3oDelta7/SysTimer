@@ -88,7 +88,7 @@ public:
 
    bool begin(void) const override { return true; }
 
-   bool attachInterrupt(CallbackArg isr, void* callbackArg) {
+   bool attachInterrupt(CallbackArg isr, void* callbackArg = nullptr) {
       _callback = isr;
       os_timer_setfn(&_timer, static_cast<ETSTimerFunc*>(isr), callbackArg);
       return true;
@@ -176,7 +176,7 @@ public:
       }
    }
 
-   bool attachInterrupt(const CallbackArg isr, void* callbackArg) {
+   bool attachInterrupt(const CallbackArg isr, void* callbackArg = nullptr) {
       if (_valid) {
          /*
           save the user's callback and argument in this object, then call our "shim" ISR that will
@@ -323,7 +323,7 @@ public:
       }
    }
 
-   bool attachInterrupt(const CallbackArg isr, void* callbackArg) {
+   bool attachInterrupt(const CallbackArg isr, void* callbackArg = nullptr) {
       if (_valid) {
          // save the user's callback and argument in this object and call from the interrupt handler
          _callback = isr;
