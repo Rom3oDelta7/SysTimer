@@ -91,7 +91,7 @@ void initTimer(const uint8_t timerNum) {
 start a timer by setting the control bits
 
 uses a fixed prescaler of 1024 (bits CS10 and CS12)
-also set WGM12 to enable the cimer compare match mode (CTC)
+also set WGM12 to enable the timer compare match mode (CTC)
 
 Setting the control bits starts the timer. Once started, the timer countines to count until stopped
 */

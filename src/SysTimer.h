@@ -273,7 +273,6 @@ Basic strategy:
 5. The ISR for the overflow timer fires at the end of the interval, and we take the necessary actions in the ISR
 e.g. countine counting, stop the timer, etc.
 
-note that timer functions are declared as "static" to limit their scope to this file
 */
 
 // macros for register pre-defined symbols  - see iomx8.h for Arduino, iomxx0_1.h for Arduino Mega
